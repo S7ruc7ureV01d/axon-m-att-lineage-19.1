@@ -1,0 +1,13 @@
+cb2267737c2bd32e2e07c9d6bbf304fce5d827685b9f85db5b9aece75a7d7a94  ./firehose/prog_emmc_firehose_fujisan.mbn
+e39e25bbed119156cd975bf85e446e8a5d592fd928fedd667e0e548845e20734  ./qfl/bin/adb.exe
+d60103a5e99bc9888f786ee916f5d6e45493c3247972cb053833803de7e95cf9  ./qfl/bin/AdbWinApi.dll
+25207c506d29c4e8dceb61b4bd50e8669ba26012988a43fbf26a890b1e60fc97  ./qfl/bin/AdbWinUsbApi.dll
+9f1dcbc35c350d6027f98be0f5c8b43b42ca52b7604459c0c42be3aa88913d47  ./qfl/bin/boot.img
+4211c74982d778cca950bbc73f364e02ea414633caac33b870c9832d62b0fed9  ./qfl/bin/fastboot.exe
+14a51482aa003db79a400f4b15c158397fe6d57ee6606b3d633fa431a7bfdf4b  ./qfl/Boot/edl2/AdbWinApi.dll
+041c6859bb4fc78d3a903dd901298cd1ecfb75b6be0646b74954cd722280a407  ./qfl/Boot/edl2/AdbWinUsbApi.dll
+bc7fd0fb36876324a803395a7d5649582c7a507711d1cfe06ad505944d97191e  ./qfl/Boot/edl2/fastboot-edl.exe
+dea55ec366c9b9a85c6b16b91b6796d8bace3c834850d7307ae17cacb91c5145  ./qfl/Boot/fh_loader.dll
+42a5cdd3daa1798099625962a569a72656f28dd7d408be0e532bb12ee35ec4aa  ./qfl/Boot/QSaharaServer.dll
+24540d815142a3d63c4bf4a01fd4db0c0aefb26794749d65480ce0a9f2bc83bb  ./qfl/Boot/WinUsb.dll
+85b2e194837488b8aea5a07ed05f81a965f0b25e23a666090aa64a53ed7f70e5  ./qfl/QFL.exe
