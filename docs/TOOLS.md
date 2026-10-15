@@ -14,8 +14,9 @@ links; availability not guaranteed.
 ## Flashing / root tools
 
 Bundled in this repo under [`tools/`](../tools) (checksums in `tools/SHA256SUMS`):
-the AT&T eMMC firehose `prog_emmc_firehose_fujisan.mbn` (root `f83555bc`) and the
-Qualcomm Flash Tool (QFL, Windows) from the
+the AT&T eMMC firehose `prog_emmc_firehose_fujisan.mbn` (root `f83555bc`), the
+Qualcomm Flash Tool (QFL, Windows) and the ZTE-signed Qualcomm USB driver
+installer (`QUSB_BULK.zip`), all from the
 [Z999 EDL root guide on XDA](https://xdaforums.com/t/zte-axon-m-root-magisk-edl-z999-root.4747653/).
 
 - [bkerler/edl](https://github.com/bkerler/edl) — Qualcomm EDL (9008) client, used for all firmware R/W.

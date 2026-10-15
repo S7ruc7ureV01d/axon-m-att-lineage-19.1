@@ -47,7 +47,7 @@ docs/BUILDING.md              sync + apply + build
 docs/FLASHING.md              EDL / recovery sideload, no fastboot
 docs/TOOLS.md                 firmware, tools, XDA research links
 docs/KNOWN_ISSUES.md          V1 limitations (GNSS)
-tools/                        AT&T eMMC firehose + Qualcomm Flash Tool (QFL)
+tools/                        AT&T eMMC firehose, Qualcomm Flash Tool (QFL), USB driver
 apply-patches.sh              applies every series with git am -3
 ```
 

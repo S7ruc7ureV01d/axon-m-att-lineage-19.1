@@ -8,8 +8,8 @@ is sideloaded from it. Flashing over EDL can brick the phone. At your own risk.
 
 - From the release: `Axon-M-ATT-EDL-recovery.zip` and
   `lineage-19.1-*-UNOFFICIAL-fujisan.zip`
-- A Windows PC with `adb` and the Qualcomm USB driver
-  ([QUSB_BULK.zip on XDA](https://xdaforums.com/attachments/qusb_bulk-zip.6244529/))
+- A Windows PC with `adb`, and the Qualcomm USB driver installed
+  (`driver/QUSB_BULK.zip` in the package: run `windows/Setup.exe`, signed by ZTE)
 - Your data backed up: the first install wipes the phone.
 
 `Axon-M-ATT-EDL-recovery.zip` holds everything for the EDL step:
@@ -20,8 +20,9 @@ is sideloaded from it. Flashing over EDL can brick the phone. At your own risk.
 | `rawprogram0.xml`, `patch0.xml` | write `recovery.img` to the recovery partition only (sector 1181696) |
 | `recovery.img` | LineageOS 19.1 recovery (F2FS, adb sideload) |
 | `QFL/` | Qualcomm Flash Tool (Windows) |
+| `driver/QUSB_BULK.zip` | ZTE Qualcomm USB driver installer (9008 / QDLoader) |
 
-The same loader and QFL are in this repo under [`tools/`](../tools).
+The same loader, QFL and driver are in this repo under [`tools/`](../tools).
 
 ## 1. Enter EDL (9008)
 
