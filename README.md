@@ -87,3 +87,15 @@ AT&T-signed copy and adds the stock AT&T `fingerprint.fpc.so` /
 
 No warranty. Flashing firmware over EDL can brick the device. You do this at
 your own risk.
+
+## Disclaimer
+
+This project was built with the help of AI (Claude Code). The released build
+was tested on real hardware. Use at your own risk.
+
+I'm not responsible for your device exploding, bending, falling apart, or in
+any other way deconstructing itself from a failed flash, broken zip alignment,
+or thermonuclear war. Nor am I held accountable if you accidentally reflash the
+image 3481 times and kill your eMMC chip. If you have any concerns about the
+features or modifications included in this ROM, please do some research before
+flashing it. You are choosing to make these modifications to your device.
