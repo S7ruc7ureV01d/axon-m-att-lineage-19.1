@@ -93,9 +93,12 @@ your own risk.
 This project was built with the help of AI (Claude Code). The released build
 was tested on real hardware. Use at your own risk.
 
-I'm not responsible for your device exploding, bending, falling apart, or in
-any other way deconstructing itself from a failed flash, broken zip alignment,
-or thermonuclear war. Nor am I held accountable if you accidentally reflash the
-image 3481 times and kill your eMMC chip. If you have any concerns about the
-features or modifications included in this ROM, please do some research before
-flashing it. You are choosing to make these modifications to your device.
+I'm not responsible for your device exploding, bending, falling apart or in any
+other way deconstructing itself from a failed flash, broken zip alignment or
+thermonuclear wars. Under no circumstances shall I be blamed if any of the 2
+displays on your device break, shatter or become discombobulated from Android
+12's design choices. Nor am I held accountable if you accidentally reflash the
+image 3481 times causing your eMMC chip to die. If you have any concerns about
+the features or modifications included in this ROM please do some research
+before flashing it. You are choosing to make these modifications to your
+device.
