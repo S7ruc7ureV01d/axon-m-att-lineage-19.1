@@ -34,7 +34,7 @@ device, vendor, kernel and LineageOS trees, then build.
 local_manifests/fujisan.xml   repo local manifest (adds device/vendor/kernel)
 patches/                      git-am patch series, one folder per source repo
   android_device_zte_fujisan/
-  android_vendor_zte_fujisan/   (contains proprietary AT&T blobs — see note)
+  android_vendor_zte_fujisan/   (zap + FPC blobs from AT&T B37)
   android_kernel_zte_msm8996/
   lineage-sdk/
   hardware_qcom-caf_msm8996_audio/
@@ -70,18 +70,13 @@ The patches apply onto these upstream tips (branch `lineage-19.1`). Use
 | lineage-sdk | LineageOS | `dffcdd8` |
 | hardware/qcom-caf/msm8996/audio | LineageOS | `dc179c8` |
 
-## ⚠️ Proprietary blobs
+## Vendor blobs
 
-`patches/android_vendor_zte_fujisan/` contains two binary patches that add
-**proprietary ZTE firmware** extracted from AT&T **B37** stock:
-
-- `a530_zap.*` — the AT&T-signed GPU zap shader
-- `fingerprint.fpc.so`, `lib_fpc_tac_shared.so` — the stock AT&T FPC HAL module
-
-These are needed to build but are **not freely redistributable**. This repo is
-private. **Review these two patches before making the repo public** — pull them
-and ship extraction-from-stock instructions instead if you publish. Everything
-in the other four patch folders is original code or AOSP-licensed.
+`patches/android_vendor_zte_fujisan/` swaps the `a530_zap.*` shader for the
+AT&T-signed copy and adds the stock AT&T `fingerprint.fpc.so` /
+`lib_fpc_tac_shared.so`, all from AT&T **B37** stock firmware (linked in
+[docs/TOOLS.md](docs/TOOLS.md)). This is consistent with how the base
+`android_vendor_zte_fujisan` tree ships its blobs.
 
 ## Credits
 

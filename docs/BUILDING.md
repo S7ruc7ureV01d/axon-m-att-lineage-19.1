@@ -37,7 +37,7 @@ The patches touch five repos:
 | repo path in the tree | patches |
 |-----------------------|---------|
 | `device/zte/fujisan` | 8 |
-| `vendor/zte/fujisan` | 2 (includes proprietary blobs) |
+| `vendor/zte/fujisan` | 2 (zap + FPC blobs) |
 | `kernel/zte/msm8996` | 1 |
 | `lineage-sdk` | 2 |
 | `hardware/qcom-caf/msm8996/audio` | 1 |
