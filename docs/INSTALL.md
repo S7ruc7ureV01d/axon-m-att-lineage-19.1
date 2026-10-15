@@ -46,7 +46,7 @@ can switch it to 9008. Close that tool right after the switch.
 
 ## 3. Install LineageOS
 
-1. Boot into recovery: from Android or factory test mode, run `adb reboot recovery`.
+1. Boot into recovery: from Android or factory test mode, run `adb reboot recovery` or hold POWER+Vol Up on boot.
 2. **First install:** Factory reset → **Format data**. `/data` must be F2FS,
    and A12 won't boot on data from another ROM. Skip this when updating.
 3. Apply update → **Apply from ADB**, then on the PC:
