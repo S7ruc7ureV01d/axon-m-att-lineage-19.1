@@ -9,6 +9,8 @@ is flashed over **Qualcomm EDL (9008)** or **recovery sideload**.
 > [TOOLS.md](TOOLS.md) and verify every write by reading it back. Do this at
 > your own risk.
 
+Short version: [INSTALL.md](INSTALL.md). This page has the details.
+
 ## Prerequisites
 
 - An AT&T unit already on the **B37** chain, with a working recovery

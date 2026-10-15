@@ -13,6 +13,11 @@ links; availability not guaranteed.
 
 ## Flashing / root tools
 
+Bundled in this repo under [`tools/`](../tools) (checksums in `tools/SHA256SUMS`):
+the AT&T eMMC firehose `prog_emmc_firehose_fujisan.mbn` (root `f83555bc`) and the
+Qualcomm Flash Tool (QFL, Windows) from the
+[Z999 EDL root guide on XDA](https://xdaforums.com/t/zte-axon-m-root-magisk-edl-z999-root.4747653/).
+
 - [bkerler/edl](https://github.com/bkerler/edl) — Qualcomm EDL (9008) client, used for all firmware R/W.
 - [AT&T Z999 B37 eMMC root guide (oneplussix, XDA)](https://xdaforums.com/t/guide-zte-axon-m-us-z999-att-emmc-root.4803967/) — pull `boot` via edl + the B37 firehose, patch with **Magisk v26.0** (newer versions bootloop and cost you EDL access), pad to size, write back, erase userdata. The route onto the B37 chain for a stock unit.
 - A phone stuck in ZTE DFU (`19d2:0112`, QUSB_BULK) needs a separate DFU→EDL step (ZTE after-sales `DFU_MultiDL`). Real EDL is `05c6:9008` via `adb reboot edl` or Vol+ & Vol− while plugging in USB.

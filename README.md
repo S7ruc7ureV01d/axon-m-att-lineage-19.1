@@ -11,7 +11,9 @@ device, vendor, kernel and LineageOS trees, then build.
 > **Status:** V1. SELinux is **permissive**. Built and tested on one AT&T eMMC
 > unit on the B37 bootloader. There is **no bootloader unlock and no fastboot**
 > on this device — everything is flashed over Qualcomm EDL / recovery
-> sideload. See [docs/FLASHING.md](docs/FLASHING.md).
+> sideload. **To install, see [docs/INSTALL.md](docs/INSTALL.md).** Known V1 limitations
+> (a one-shot GNSS crash at boot) are in
+> [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md).
 
 ## What these patches fix
 
@@ -25,6 +27,7 @@ device, vendor, kernel and LineageOS trees, then build.
 | **Fingerprint** | Run the stock AT&T FPC module under the AOSP 2.1 wrapper with the callback shims the Nougat module needs on A12 (enroll / enumerate / remove / cancel) |
 | **Dual-screen touch** | Release stuck fingers when the fold/unfold touch route switches (fixes flaky gesture swipe after folding) |
 | **Dual-screen display** | Don't power-cycle panel B on an unfolded wake (fixes the blink/dim-then-ramp) |
+| **Folded status bar** | Key SystemUI's status bar insets cache on display size, so folding no longer reuses the unfolded 2160px layout (battery/wifi/signal icons were squeezed out) |
 | **UX** | Default the Lineage taskbar off (the 2160px unfolded panel otherwise triggers tablet taskbar) |
 | **Build** | Silence a `-Werror` unused-parameter break in the msm8996 audio HAL |
 
@@ -38,9 +41,13 @@ patches/                      git-am patch series, one folder per source repo
   android_kernel_zte_msm8996/
   lineage-sdk/
   hardware_qcom-caf_msm8996_audio/
+  android_frameworks_base/      (SystemUI)
+docs/INSTALL.md               short install guide (EDL recovery + sideload)
 docs/BUILDING.md              sync + apply + build
 docs/FLASHING.md              EDL / recovery sideload, no fastboot
 docs/TOOLS.md                 firmware, tools, XDA research links
+docs/KNOWN_ISSUES.md          V1 limitations (GNSS)
+tools/                        AT&T eMMC firehose + Qualcomm Flash Tool (QFL)
 apply-patches.sh              applies every series with git am -3
 ```
 
@@ -69,6 +76,7 @@ The patches apply onto these upstream tips (branch `lineage-19.1`). Use
 | android_kernel_zte_msm8996 | Anya1014CN | `9d98bc14` |
 | lineage-sdk | LineageOS | `dffcdd8` |
 | hardware/qcom-caf/msm8996/audio | LineageOS | `dc179c8` |
+| android_frameworks_base | LineageOS | `aef7a0a` |
 
 ## Vendor blobs
 
