@@ -1,0 +1,29 @@
+From fb0350af3be9cb8708aa6f4556b978fdc8a0d84e Mon Sep 17 00:00:00 2001
+From: S7ruc7ureV01d <S7ruc7ureV01d@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 22:22:48 -0300
+Subject: [PATCH 1/2] health: don't NPE when the charging control HAL is absent
+
+ChargingControlController's constructor queries supported modes before
+isSupported() is checked, so devices without vendor.lineage.health crash
+HealthInterfaceService (BOOT FAILURE) during system_server startup.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Change-Id: I67a25844cf404fd8fc28904972a77e9d42ffdb2a
+---
+ .../platform/internal/health/ChargingControlController.java    | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/lineage/lib/main/java/org/lineageos/platform/internal/health/ChargingControlController.java b/lineage/lib/main/java/org/lineageos/platform/internal/health/ChargingControlController.java
+index 6b31553..45dd4a9 100644
+--- a/lineage/lib/main/java/org/lineageos/platform/internal/health/ChargingControlController.java
++++ b/lineage/lib/main/java/org/lineageos/platform/internal/health/ChargingControlController.java
+@@ -253,6 +253,9 @@ public class ChargingControlController extends LineageHealthFeature {
+     }
+ 
+     public boolean isChargingModeSupported(int mode) {
++        if (mChargingControl == null) {
++            return false;
++        }
+         try {
+             return (mChargingControl.getSupportedMode() & mode) != 0;
+         } catch (RemoteException e) {

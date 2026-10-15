@@ -1,0 +1,40 @@
+From a197aacb5e0927286e8701c6a929a4d9c49ee640 Mon Sep 17 00:00:00 2001
+From: S7ruc7ureV01d <S7ruc7ureV01d@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 11:31:37 -0300
+Subject: [PATCH 1/8] fujisan: AT&T eMMC: disable CMDQ, create FPC data dir
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ BoardConfig.mk       | 4 ++++
+ rootdir/init.qcom.rc | 7 +++++++
+ 2 files changed, 11 insertions(+)
+
+diff --git a/BoardConfig.mk b/BoardConfig.mk
+index 6ef0467..6249f40 100644
+--- a/BoardConfig.mk
++++ b/BoardConfig.mk
+@@ -47,6 +47,10 @@ BOARD_SUPPORTS_SOUND_TRIGGER := false
+ BOARD_KERNEL_CMDLINE := console=ttyHSL0,115200,n8 androidboot.console=ttyHSL0 androidboot.hardware=qcom user_debug=31 msm_rtb.filter=0x237 ehci-hcd.park=3 cma=32M@0-0xffffffff
+ BOARD_KERNEL_CMDLINE += androidboot.selinux=permissive
+ BOARD_KERNEL_CMDLINE += watchdog_v2.enable=0
++# The eMMC advertises CMDQ, but this MSM8996 SDHCI integration fails CMDQ
++# setup with -ENOTSUPP and corrupts the fallback queue during boot (AT&T
++# eMMC units). Same fix as the lineage-23.2 tree.
++BOARD_KERNEL_CMDLINE += sdhci_msm.nocmdq=1
+ BOARD_KERNEL_CMDLINE += panic=3
+ BOARD_KERNEL_CMDLINE += printk.always_kmsg_dump=1
+ BOARD_KERNEL_BASE := 0x80000000
+diff --git a/rootdir/init.qcom.rc b/rootdir/init.qcom.rc
+index 86c904c..80f7f36 100644
+--- a/rootdir/init.qcom.rc
++++ b/rootdir/init.qcom.rc
+@@ -1,2 +1,9 @@
+ # Product init extras live in fujisan.*.rc.
+ # USB: configfs via fujisan.usb.rc + vendor init.qcom.usb.rc
++
++on post-fs-data
++    # The FPC trusted app stores its version file and templates here through
++    # qseecomd. Stock ZTE init created it; on a freshly formatted /data it is
++    # otherwise missing and the TA fails fpc_driver_init.
++    mkdir /data/system/fingerprint 0700 system system
++    restorecon_recursive /data/system/fingerprint

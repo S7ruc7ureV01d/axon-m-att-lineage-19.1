@@ -1,0 +1,106 @@
+From 88d8c7402ba91963aa8a9957f06515b021e4e7c4 Mon Sep 17 00:00:00 2001
+From: S7ruc7ureV01d <S7ruc7ureV01d@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 21:31:27 -0300
+Subject: [PATCH 2/8] fujisan: recovery: configfs USB and panel B
+
+Recovery imported a missing init.recovery.qcom.rc, so it fell back to the
+legacy android_usb gadget, which this kernel lacks: no USB at all, adb
+sideload unusable. Switch it to configfs on 6a00000.dwc3 and force DWC3
+into peripheral mode.
+
+fb0 spans both panels (2160x1920 split), but panel B stays dark because
+only fujisan_halld sets mdss_fb.fujisan_secondary_display_allowed. Add a
+small recovery service that allows B and mirrors panel A's brightness
+onto lcd-backlight-2, so the UI spans both screens and dims with A.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ device.mk                              |  2 ++
+ rootdir/bin/fujisan_recovery_panelb.sh | 23 +++++++++++++++++
+ rootdir/etc/init.recovery.qcom.rc      | 34 ++++++++++++++++++++++++++
+ 3 files changed, 59 insertions(+)
+ create mode 100755 rootdir/bin/fujisan_recovery_panelb.sh
+ create mode 100644 rootdir/etc/init.recovery.qcom.rc
+
+diff --git a/device.mk b/device.mk
+index 3adaea7..2f53fbc 100644
+--- a/device.mk
++++ b/device.mk
+@@ -325,6 +325,8 @@ PRODUCT_COPY_FILES += \
+     $(LOCAL_PATH)/rootdir/persist/.placeholder:$(TARGET_COPY_OUT_RAMDISK)/persist/.placeholder \
+     $(LOCAL_PATH)/rootdir/etc/fstab.ramdisk.qcom:$(TARGET_COPY_OUT_RAMDISK)/fstab.qcom \
+     $(LOCAL_PATH)/rootdir/etc/fstab.qcom:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.qcom \
++    $(LOCAL_PATH)/rootdir/etc/init.recovery.qcom.rc:$(TARGET_COPY_OUT_RECOVERY)/root/init.recovery.qcom.rc \
++    $(LOCAL_PATH)/rootdir/bin/fujisan_recovery_panelb.sh:$(TARGET_COPY_OUT_RECOVERY)/root/system/bin/fujisan_recovery_panelb.sh \
+     $(LOCAL_PATH)/system/usr/idc/goodix-touchscreen.idc:$(TARGET_COPY_OUT_SYSTEM)/usr/idc/goodix-touchscreen.idc \
+     $(LOCAL_PATH)/system/usr/idc/synaptics_dsx.idc:$(TARGET_COPY_OUT_SYSTEM)/usr/idc/synaptics_dsx.idc \
+     $(LOCAL_PATH)/system/usr/idc/zte-touchscreen.idc:$(TARGET_COPY_OUT_SYSTEM)/usr/idc/zte-touchscreen.idc \
+diff --git a/rootdir/bin/fujisan_recovery_panelb.sh b/rootdir/bin/fujisan_recovery_panelb.sh
+new file mode 100755
+index 0000000..d64a20c
+--- /dev/null
++++ b/rootdir/bin/fujisan_recovery_panelb.sh
+@@ -0,0 +1,23 @@
++#!/system/bin/sh
++# Recovery has no fujisan_halld, so panel B (right half of the 2160x1920
++# split fb0) stays dark.  Let the kernel wake B, then mirror panel A's
++# brightness onto it so recovery's idle dimming/screen-off covers both.
++# The kernel drops B writes until fb0 is interactive, so keep re-asserting.
++
++ALLOW=/sys/module/mdss_fb/parameters/fujisan_secondary_display_allowed
++A=/sys/class/leds/lcd-backlight/brightness
++B=/sys/class/leds/lcd-backlight-2/brightness
++
++echo 1 > $ALLOW
++last=-1
++n=0
++while true; do
++    cur=$(cat $A)
++    # Re-send for the first ~10s in case fb0 was not interactive yet.
++    if [ "$cur" != "$last" ] || [ $n -lt 10 ]; then
++        echo $cur > $B
++        last=$cur
++    fi
++    n=$((n + 1))
++    sleep 1
++done
+diff --git a/rootdir/etc/init.recovery.qcom.rc b/rootdir/etc/init.recovery.qcom.rc
+new file mode 100644
+index 0000000..b82fbe8
+--- /dev/null
++++ b/rootdir/etc/init.recovery.qcom.rc
+@@ -0,0 +1,34 @@
++# Recovery USB: the msm8996 kernel only has the configfs gadget (no legacy
++# android_usb), so switch recovery's init.rc over to its configfs path.
++# Imported after recovery's init.rc, so these run after its configfs=0 default.
++
++on early-init
++    setprop sys.usb.configfs 1
++    setprop sys.usb.controller 6a00000.dwc3
++
++on init
++    setprop sys.usb.configfs 1
++    setprop sys.usb.controller 6a00000.dwc3
++
++# DWC3 may come up runtime-suspended / in host mode; force peripheral before
++# the generic configfs triggers bind the UDC.
++on fs
++    write /sys/devices/soc/6a00000.ssusb/mode peripheral
++
++on property:sys.usb.config=adb
++    write /sys/devices/soc/6a00000.ssusb/mode peripheral
++
++on property:sys.usb.config=sideload
++    write /sys/devices/soc/6a00000.ssusb/mode peripheral
++
++on property:sys.usb.config=fastboot
++    write /sys/devices/soc/6a00000.ssusb/mode peripheral
++
++# Panel B: see fujisan_recovery_panelb.sh.
++service fujisan_panelb /system/bin/sh /system/bin/fujisan_recovery_panelb.sh
++    user root
++    group root
++    seclabel u:r:recovery:s0
++
++on boot
++    start fujisan_panelb

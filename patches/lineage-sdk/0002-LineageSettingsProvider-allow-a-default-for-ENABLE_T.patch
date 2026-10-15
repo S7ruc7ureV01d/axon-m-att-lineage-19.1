@@ -1,0 +1,48 @@
+From 76221819d73c600e8c1b0dc6338a0ecadef40e87 Mon Sep 17 00:00:00 2001
+From: S7ruc7ureV01d <S7ruc7ureV01d@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 23:04:17 -0300
+Subject: [PATCH 2/2] LineageSettingsProvider: allow a default for
+ ENABLE_TASKBAR
+
+def_enable_taskbar (-1 = unset) lets devices pick the initial taskbar
+state; Launcher3 otherwise derives it from isTablet.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Change-Id: I91cc9074181f7a05553cd7b276cc944c5af50b99
+---
+ packages/LineageSettingsProvider/res/values/defaults.xml   | 3 +++
+ .../lineageos/lineagesettings/LineageDatabaseHelper.java   | 7 +++++++
+ 2 files changed, 10 insertions(+)
+
+diff --git a/packages/LineageSettingsProvider/res/values/defaults.xml b/packages/LineageSettingsProvider/res/values/defaults.xml
+index 9b52ce1..4a68b83 100644
+--- a/packages/LineageSettingsProvider/res/values/defaults.xml
++++ b/packages/LineageSettingsProvider/res/values/defaults.xml
+@@ -32,6 +32,9 @@
+     <!-- Default for LineageSettings.System.FORCE_SHOW_NAVBAR -->
+     <integer name="def_force_show_navbar">0</integer>
+ 
++    <!-- Default for LineageSettings.System.ENABLE_TASKBAR; -1 leaves it unset -->
++    <integer name="def_enable_taskbar">-1</integer>
++
+     <!-- Default for LineageSettings.System.QS_QUICK_PULLDOWN
+          0. Off
+          1. Right
+diff --git a/packages/LineageSettingsProvider/src/org/lineageos/lineagesettings/LineageDatabaseHelper.java b/packages/LineageSettingsProvider/src/org/lineageos/lineagesettings/LineageDatabaseHelper.java
+index a7107ae..da594a4 100644
+--- a/packages/LineageSettingsProvider/src/org/lineageos/lineagesettings/LineageDatabaseHelper.java
++++ b/packages/LineageSettingsProvider/src/org/lineageos/lineagesettings/LineageDatabaseHelper.java
+@@ -519,6 +519,13 @@ public class LineageDatabaseHelper extends SQLiteOpenHelper{
+             loadIntegerSetting(stmt, LineageSettings.System.FORCE_SHOW_NAVBAR,
+                     R.integer.def_force_show_navbar);
+ 
++            // -1 leaves ENABLE_TASKBAR unset so Launcher3 keeps its isTablet default.
++            final int enableTaskbar = mContext.getResources().getInteger(
++                    R.integer.def_enable_taskbar);
++            if (enableTaskbar >= 0) {
++                loadSetting(stmt, LineageSettings.System.ENABLE_TASKBAR, enableTaskbar);
++            }
++
+             loadIntegerSetting(stmt, LineageSettings.System.STATUS_BAR_QUICK_QS_PULLDOWN,
+                     R.integer.def_qs_quick_pulldown);
+ 

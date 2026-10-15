@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote name="anya" fetch="https://github.com/Anya1014CN" />
+  <project path="device/zte/fujisan" name="android_device_zte_fujisan" remote="anya" revision="lineage-19.1" />
+  <project path="vendor/zte/fujisan" name="android_vendor_zte_fujisan" remote="anya" revision="lineage-19.1" />
+  <project path="kernel/zte/msm8996" name="android_kernel_zte_msm8996" remote="anya" revision="lineage-19.1" />
+</manifest>

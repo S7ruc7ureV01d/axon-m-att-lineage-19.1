@@ -1,0 +1,26 @@
+From e1d0b3d28124401345bbbdb7bbeab5dc11e58ef8 Mon Sep 17 00:00:00 2001
+From: S7ruc7ureV01d <S7ruc7ureV01d@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 23:04:07 -0300
+Subject: [PATCH 6/8] fujisan: default Lineage taskbar off
+
+Unfolded, the 2160px display crosses Launcher3's tablet threshold and the
+gesture pill becomes a taskbar.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../LineageSettingsProvider/res/values/defaults.xml         | 6 ++++++
+ 1 file changed, 6 insertions(+)
+ create mode 100644 overlay/lineage-sdk/packages/LineageSettingsProvider/res/values/defaults.xml
+
+diff --git a/overlay/lineage-sdk/packages/LineageSettingsProvider/res/values/defaults.xml b/overlay/lineage-sdk/packages/LineageSettingsProvider/res/values/defaults.xml
+new file mode 100644
+index 0000000..45a1a1f
+--- /dev/null
++++ b/overlay/lineage-sdk/packages/LineageSettingsProvider/res/values/defaults.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <!-- Unfolded, the 2160-wide panel crosses Launcher3's tablet threshold and
++         turns the gesture pill into a taskbar. Keep the phone navigation. -->
++    <integer name="def_enable_taskbar">0</integer>
++</resources>

@@ -1,0 +1,166 @@
+From 6e868121cc93bf053d589de7c08031e555cb138b Mon Sep 17 00:00:00 2001
+From: S7ruc7ureV01d <S7ruc7ureV01d@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 23:04:17 -0300
+Subject: [PATCH] input: fujisan: release fingers when the touch route flips
+
+fujisan_halld toggles zte_touch_expand.separate_inputs on every fold and
+unfold, usually with fingers on the glass. Neither side released its slots,
+so the device losing the route kept stale contacts down and later touches
+arrived as MOVEs of a gesture that never started: edge swipe-up failed
+until the slot happened to be released. Lift every combined slot when
+switching to per-panel inputs, and have each panel driver lift its own
+device when switching back to the combined input.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../synaptics_dsx_v2_7_0/synaptics_dsx_core.c | 11 ++++
+ .../synaptics_dsx_v2_7_0/zte_touch_expand.c   | 65 ++++++++++++++++++-
+ .../synaptics_dsx_core.c                      | 11 ++++
+ 3 files changed, 85 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/input/touchscreen/synaptics_dsx_v2_7_0/synaptics_dsx_core.c b/drivers/input/touchscreen/synaptics_dsx_v2_7_0/synaptics_dsx_core.c
+index 5920de30..baf22913 100644
+--- a/drivers/input/touchscreen/synaptics_dsx_v2_7_0/synaptics_dsx_core.c
++++ b/drivers/input/touchscreen/synaptics_dsx_v2_7_0/synaptics_dsx_core.c
+@@ -127,10 +127,18 @@ void zte_touch_expand_push(unsigned short x, unsigned short y,
+ 		unsigned int wx, unsigned int wy, unsigned char slot_id,
+ 		unsigned char tool_finger, unsigned char panel_id);
+ bool zte_touch_separate_inputs_enabled(void);
++void zte_touch_expand_register_release(unsigned char panel_id,
++		void (*release)(void *data), void *data);
+ int gloved_finger_hall_status_2nd(bool flag);
+ static int synaptics_rmi4_check_status(struct synaptics_rmi4_data *rmi4_data,
+ 		bool *was_in_bl_mode);
+ static int synaptics_rmi4_free_fingers(struct synaptics_rmi4_data *rmi4_data);
++
++/* Called by zte_touch_expand when the combined/per-panel route flips. */
++static void synaptics_rmi4_expand_release(void *data)
++{
++	synaptics_rmi4_free_fingers(data);
++}
+ static int synaptics_rmi4_reinit_device(struct synaptics_rmi4_data *rmi4_data);
+ static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data,
+ 		bool rebuild);
+@@ -4979,6 +4987,9 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
+ 		goto err_set_input_dev;
+ 	}
+ 
++	zte_touch_expand_register_release(0, synaptics_rmi4_expand_release,
++			rmi4_data);
++
+ #ifdef CONFIG_FB
+ 	rmi4_data->fb_notifier.notifier_call = synaptics_rmi4_fb_notifier_cb;
+ 	retval = fb_register_client(&rmi4_data->fb_notifier);
+diff --git a/drivers/input/touchscreen/synaptics_dsx_v2_7_0/zte_touch_expand.c b/drivers/input/touchscreen/synaptics_dsx_v2_7_0/zte_touch_expand.c
+index 5c579167..972d6564 100644
+--- a/drivers/input/touchscreen/synaptics_dsx_v2_7_0/zte_touch_expand.c
++++ b/drivers/input/touchscreen/synaptics_dsx_v2_7_0/zte_touch_expand.c
+@@ -53,13 +53,74 @@ static bool separate_inputs;
+ static bool separate_inputs;
+ #endif
+ 
+-module_param_named(separate_inputs, separate_inputs, bool, 0644);
++/* Each panel driver registers a hook that releases its own input device's
++ * fingers.  fujisan_halld flips separate_inputs on every fold/unfold, often
++ * with fingers still on the glass; without a release, the device that loses
++ * the route keeps those slots down forever and the next touch in the same slot
++ * arrives as a MOVE of a stale gesture (edge swipes are then ignored). */
++static void (*panel_release[2])(void *data);
++static void *panel_release_data[2];
++static DEFINE_MUTEX(separate_inputs_lock);
++
++void zte_touch_expand_register_release(unsigned char panel_id,
++		void (*release)(void *data), void *data)
++{
++	if (panel_id > MINOR_PANEL)
++		return;
++	mutex_lock(&separate_inputs_lock);
++	panel_release_data[panel_id] = data;
++	panel_release[panel_id] = release;
++	mutex_unlock(&separate_inputs_lock);
++}
++EXPORT_SYMBOL(zte_touch_expand_register_release);
++
++void zte_touch_expand_push(unsigned short x, unsigned short y,
++		unsigned int wx, unsigned int wy, unsigned char slot_id,
++		unsigned char tool_finger, unsigned char panel_id);
++
++static int separate_inputs_set(const char *val, const struct kernel_param *kp)
++{
++	bool new_value;
++	unsigned char panel, slot;
++	int ret;
++
++	ret = strtobool(val, &new_value);
++	if (ret)
++		return ret;
++
++	mutex_lock(&separate_inputs_lock);
++	if (new_value != READ_ONCE(separate_inputs)) {
++		if (new_value && global_touch_expand.input_dev) {
++			/* Combined -> per-panel: lift every combined slot. */
++			for (panel = MAJOR_PANEL; panel <= MINOR_PANEL; panel++)
++				for (slot = 0; slot < MAX_FINGER / 2; slot++)
++					zte_touch_expand_push(0, 0, 0, 0, slot, 0, panel);
++		} else if (!new_value) {
++			/* Per-panel -> combined: each panel lifts its own fingers
++			 * while its reports still route to its own device. */
++			for (panel = MAJOR_PANEL; panel <= MINOR_PANEL; panel++)
++				if (panel_release[panel])
++					panel_release[panel](panel_release_data[panel]);
++		}
++		WRITE_ONCE(separate_inputs, new_value);
++		TEB_INFO("separate_inputs=%d, released stale fingers\n", new_value);
++	}
++	mutex_unlock(&separate_inputs_lock);
++	return 0;
++}
++
++static const struct kernel_param_ops separate_inputs_ops = {
++	.set = separate_inputs_set,
++	.get = param_get_bool,
++};
++
++module_param_cb(separate_inputs, &separate_inputs_ops, &separate_inputs, 0644);
+ MODULE_PARM_DESC(separate_inputs,
+ 		"Route touches to each panel input instead of the combined input");
+ 
+ bool zte_touch_separate_inputs_enabled(void)
+ {
+-	return separate_inputs;
++	return READ_ONCE(separate_inputs);
+ }
+ EXPORT_SYMBOL(zte_touch_separate_inputs_enabled);
+ 
+diff --git a/drivers/input/touchscreen/synaptics_dsx_v2_7_0_2nd/synaptics_dsx_core.c b/drivers/input/touchscreen/synaptics_dsx_v2_7_0_2nd/synaptics_dsx_core.c
+index 31a6b718..72567d9b 100644
+--- a/drivers/input/touchscreen/synaptics_dsx_v2_7_0_2nd/synaptics_dsx_core.c
++++ b/drivers/input/touchscreen/synaptics_dsx_v2_7_0_2nd/synaptics_dsx_core.c
+@@ -128,9 +128,17 @@ void zte_touch_expand_push(unsigned short x, unsigned short y,
+ 		unsigned int wx, unsigned int wy, unsigned char slot_id,
+ 		unsigned char tool_finger, unsigned char panel_id);
+ bool zte_touch_separate_inputs_enabled(void);
++void zte_touch_expand_register_release(unsigned char panel_id,
++		void (*release)(void *data), void *data);
+ static int synaptics_rmi4_check_status(struct synaptics_rmi4_data *rmi4_data,
+ 		bool *was_in_bl_mode);
+ static int synaptics_rmi4_free_fingers(struct synaptics_rmi4_data *rmi4_data);
++
++/* Called by zte_touch_expand when the combined/per-panel route flips. */
++static void synaptics_rmi4_expand_release(void *data)
++{
++	synaptics_rmi4_free_fingers(data);
++}
+ static int synaptics_rmi4_reinit_device(struct synaptics_rmi4_data *rmi4_data);
+ static int synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data,
+ 		bool rebuild);
+@@ -4931,6 +4939,9 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
+ 		goto err_set_input_dev;
+ 	}
+ 
++	zte_touch_expand_register_release(1, synaptics_rmi4_expand_release,
++			rmi4_data);
++
+ #ifdef CONFIG_FB
+ 	rmi4_data->fb_notifier.notifier_call = synaptics_rmi4_fb_notifier_cb;
+ 	retval = fb_register_client(&rmi4_data->fb_notifier);

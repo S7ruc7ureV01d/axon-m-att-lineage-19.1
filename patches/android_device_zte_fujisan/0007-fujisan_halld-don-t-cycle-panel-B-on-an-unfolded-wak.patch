@@ -1,0 +1,51 @@
+From 7bca7e189d983c06943dea98d57602c3a04bb76f Mon Sep 17 00:00:00 2001
+From: S7ruc7ureV01d <S7ruc7ureV01d@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 23:04:07 -0300
+Subject: [PATCH 7/8] fujisan_halld: don't cycle panel B on an unfolded wake
+
+halld restarts on every display-power change. On wake it wrote B=0 then
+the target, ~150 ms after MDSS had already relit B, sending Display Off and
+a WLED CABC reset: B blinked, dimmed, then ramped to match A. Only force
+the cycle when B is actually disabled (folded/sleep in single-B).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ dualscreen/hall/fujisan_halld.cpp | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/dualscreen/hall/fujisan_halld.cpp b/dualscreen/hall/fujisan_halld.cpp
+index 1a428a2..43845a2 100644
+--- a/dualscreen/hall/fujisan_halld.cpp
++++ b/dualscreen/hall/fujisan_halld.cpp
+@@ -278,6 +278,17 @@ static void secondary_off() {
+     write_sysfs("/sys/class/leds/lcd-backlight-2/brightness", "0");
+ }
+ 
++static bool secondary_display_allowed() {
++    char v[8] = {};
++    int fd = open("/sys/module/mdss_fb/parameters/fujisan_secondary_display_allowed",
++                  O_RDONLY | O_CLOEXEC);
++    if (fd < 0)
++        return false;
++    (void)read(fd, v, sizeof(v) - 1);
++    close(fd);
++    return v[0] == 'Y' || v[0] == '1';
++}
++
+ static void secondary_on(int bl) {
+     if (bl < 0)
+         bl = 0;
+@@ -285,6 +296,13 @@ static void secondary_on(int bl) {
+         bl = 255;
+     char b[16];
+     snprintf(b, sizeof(b), "%d", bl);
++    /* B stays allowed across an unfolded sleep: MDSS keeps it in Display On
++     * and relights it with A on unblank.  This daemon is restarted on every
++     * display-power change, so replaying the off/on cycle here would send B
++     * Display Off + a WLED CABC reset right after the kernel woke it (a
++     * visible blink and dim-then-ramp).  A's DCS path already mirrors it. */
++    if (secondary_display_allowed())
++        return;
+     /* Never touch fb1/blank here.  HWC owns scanout; this explicit B write
+      * only establishes the hinge-selected Display On state.  A's MDSS DCS
+      * path mirrors every subsequent brightness and sleep/wake step. */

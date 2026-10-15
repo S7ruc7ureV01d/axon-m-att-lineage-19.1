@@ -1,0 +1,274 @@
+From 4f92a7f6ebc96c1a45498863e3af164d3dc608d2 Mon Sep 17 00:00:00 2001
+From: S7ruc7ureV01d <S7ruc7ureV01d@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 23:30:22 -0300
+Subject: [PATCH 8/8] fujisan: fingerprint wrapper: answer
+ cancel/enumerate/remove for the Nougat module
+
+The stock AT&T fingerprint.fpc.so never reports ERROR_CANCELED after
+cancel(), never enumerates templates (empty or not) and may not report
+removals; Android 12's scheduler then waits forever (enroll freezes after
+the first touch) or, with a blind empty enumerate, drops every enrolled
+finger at boot as dangling. Keep the enrolled fids in
+<storePath>/fujisan_fids and answer enumerate/remove from that list, and
+send ERROR_CANCELED if the module stays silent after cancel().
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ fingerprint/BiometricsFingerprint.cpp | 148 ++++++++++++++++++++++++--
+ fingerprint/BiometricsFingerprint.h   |  20 ++++
+ 2 files changed, 160 insertions(+), 8 deletions(-)
+
+diff --git a/fingerprint/BiometricsFingerprint.cpp b/fingerprint/BiometricsFingerprint.cpp
+index 04b8af9..a02dd00 100644
+--- a/fingerprint/BiometricsFingerprint.cpp
++++ b/fingerprint/BiometricsFingerprint.cpp
+@@ -22,7 +22,11 @@
+ #include <hardware/fingerprint.h>
+ #include "BiometricsFingerprint.h"
+ 
++#include <algorithm>
+ #include <chrono>
++#include <errno.h>
++#include <stdio.h>
++#include <string.h>
+ #include <inttypes.h>
+ #include <thread>
+ #include <unistd.h>
+@@ -176,7 +180,27 @@ Return<uint64_t> BiometricsFingerprint::getAuthenticatorId() {
+ }
+ 
+ Return<RequestStatus> BiometricsFingerprint::cancel() {
+-    return ErrorFilter(mDevice->cancel(mDevice));
++    const uint32_t generation = ++mCancelGeneration;
++    mCancelAnswered = false;
++    const int32_t ret = mDevice->cancel(mDevice);
++    if (ret == 0) {
++        // The module's worker aborts the operation but never notifies; report
++        // ERROR_CANCELED ourselves unless it shows up on its own.
++        std::thread([this, generation]() {
++            std::this_thread::sleep_for(std::chrono::milliseconds(100));
++            std::lock_guard<std::mutex> lock(mClientCallbackMutex);
++            if (generation != mCancelGeneration || mCancelAnswered.exchange(true) ||
++                    mClientCallback == nullptr) {
++                return;
++            }
++            ALOGI("cancel: module sent no ERROR_CANCELED, sending it");
++            if (!mClientCallback->onError(reinterpret_cast<uint64_t>(mDevice),
++                    FingerprintError::ERROR_CANCELED, 0).isOk()) {
++                ALOGE("failed to invoke fingerprint onError callback");
++            }
++        }).detach();
++    }
++    return ErrorFilter(ret);
+ }
+ 
+ Return<RequestStatus> BiometricsFingerprint::enumerate()  {
+@@ -185,8 +209,8 @@ Return<RequestStatus> BiometricsFingerprint::enumerate()  {
+     const int32_t ret = mDevice->enumerate(mDevice);
+     if (ret == 0) {
+         // Templates are reported straight from the module's worker; if none
+-        // arrive shortly, answer "no templates" (fid 0, remaining 0), which
+-        // the framework treats as an empty HAL.
++        // arrive shortly, answer from the stored fid list (fid 0, remaining 0
++        // when empty, which the framework treats as an empty HAL).
+         std::thread([this, generation]() {
+             std::this_thread::sleep_for(std::chrono::milliseconds(500));
+             std::lock_guard<std::mutex> lock(mClientCallbackMutex);
+@@ -194,10 +218,19 @@ Return<RequestStatus> BiometricsFingerprint::enumerate()  {
+                     mClientCallback == nullptr) {
+                 return;
+             }
+-            ALOGI("enumerate: no templates reported, sending empty result");
+-            if (!mClientCallback->onEnumerate(reinterpret_cast<uint64_t>(mDevice), 0,
+-                    mActiveGid, 0).isOk()) {
+-                ALOGE("failed to invoke fingerprint onEnumerate callback");
++            const std::vector<uint32_t> fids = snapshotFids();
++            const uint64_t devId = reinterpret_cast<uint64_t>(mDevice);
++            ALOGI("enumerate: module reported nothing, sending %zu stored fid(s)", fids.size());
++            if (fids.empty()) {
++                if (!mClientCallback->onEnumerate(devId, 0, mActiveGid, 0).isOk())
++                    ALOGE("failed to invoke fingerprint onEnumerate callback");
++                return;
++            }
++            for (size_t i = 0; i < fids.size(); i++) {
++                if (!mClientCallback->onEnumerate(devId, fids[i], mActiveGid,
++                        fids.size() - 1 - i).isOk()) {
++                    ALOGE("failed to invoke fingerprint onEnumerate callback");
++                }
+             }
+         }).detach();
+     }
+@@ -205,7 +238,95 @@ Return<RequestStatus> BiometricsFingerprint::enumerate()  {
+ }
+ 
+ Return<RequestStatus> BiometricsFingerprint::remove(uint32_t gid, uint32_t fid) {
+-    return ErrorFilter(mDevice->remove(mDevice, gid, fid));
++    const uint32_t generation = ++mRemoveGeneration;
++    mRemoveAnswered = false;
++    const int32_t ret = mDevice->remove(mDevice, gid, fid);
++    if (ret == 0) {
++        std::thread([this, generation, gid, fid]() {
++            std::this_thread::sleep_for(std::chrono::milliseconds(500));
++            std::lock_guard<std::mutex> lock(mClientCallbackMutex);
++            if (generation != mRemoveGeneration || mRemoveAnswered.exchange(true) ||
++                    mClientCallback == nullptr) {
++                return;
++            }
++            // fid 0 removes every template of the group.
++            const std::vector<uint32_t> removed = removeFid(fid);
++            const uint64_t devId = reinterpret_cast<uint64_t>(mDevice);
++            ALOGI("remove: module reported nothing, confirming %zu fid(s)", removed.size());
++            if (removed.empty()) {
++                if (!mClientCallback->onRemoved(devId, fid, gid, 0).isOk())
++                    ALOGE("failed to invoke fingerprint onRemoved callback");
++                return;
++            }
++            for (size_t i = 0; i < removed.size(); i++) {
++                if (!mClientCallback->onRemoved(devId, removed[i], gid,
++                        removed.size() - 1 - i).isOk()) {
++                    ALOGE("failed to invoke fingerprint onRemoved callback");
++                }
++            }
++        }).detach();
++    }
++    return ErrorFilter(ret);
++}
++
++void BiometricsFingerprint::loadFidsLocked() {
++    mFids.clear();
++    FILE* f = fopen(mFidPath.c_str(), "re");
++    if (f == nullptr)
++        return;
++    unsigned int fid;
++    while (fscanf(f, "%u", &fid) == 1) {
++        if (fid != 0 && std::find(mFids.begin(), mFids.end(), fid) == mFids.end())
++            mFids.push_back(fid);
++    }
++    fclose(f);
++}
++
++void BiometricsFingerprint::saveFidsLocked() {
++    if (mFidPath.empty())
++        return;
++    const std::string tmp = mFidPath + ".tmp";
++    FILE* f = fopen(tmp.c_str(), "we");
++    if (f == nullptr) {
++        ALOGE("cannot write %s: %s", tmp.c_str(), strerror(errno));
++        return;
++    }
++    for (uint32_t fid : mFids)
++        fprintf(f, "%u\n", fid);
++    fflush(f);
++    fsync(fileno(f));
++    fclose(f);
++    if (rename(tmp.c_str(), mFidPath.c_str()) != 0)
++        ALOGE("cannot rename %s: %s", tmp.c_str(), strerror(errno));
++}
++
++void BiometricsFingerprint::addFid(uint32_t fid) {
++    std::lock_guard<std::mutex> lock(mFidMutex);
++    if (fid == 0 || std::find(mFids.begin(), mFids.end(), fid) != mFids.end())
++        return;
++    mFids.push_back(fid);
++    saveFidsLocked();
++}
++
++std::vector<uint32_t> BiometricsFingerprint::removeFid(uint32_t fid) {
++    std::lock_guard<std::mutex> lock(mFidMutex);
++    std::vector<uint32_t> removed;
++    if (fid == 0) {
++        removed.swap(mFids);
++    } else {
++        auto it = std::find(mFids.begin(), mFids.end(), fid);
++        if (it != mFids.end()) {
++            mFids.erase(it);
++            removed.push_back(fid);
++        }
++    }
++    saveFidsLocked();
++    return removed;
++}
++
++std::vector<uint32_t> BiometricsFingerprint::snapshotFids() {
++    std::lock_guard<std::mutex> lock(mFidMutex);
++    return mFids;
+ }
+ 
+ Return<RequestStatus> BiometricsFingerprint::setActiveGroup(uint32_t gid,
+@@ -219,6 +340,11 @@ Return<RequestStatus> BiometricsFingerprint::setActiveGroup(uint32_t gid,
+     }
+ 
+     mActiveGid = gid;
++    {
++        std::lock_guard<std::mutex> lock(mFidMutex);
++        mFidPath = std::string(storePath.c_str()) + "/fujisan_fids";
++        loadFidsLocked();
++    }
+     return ErrorFilter(mDevice->set_active_group(mDevice, gid,
+                                                     storePath.c_str()));
+ }
+@@ -294,6 +420,8 @@ void BiometricsFingerprint::notify(const fingerprint_msg_t *msg) {
+         case FINGERPRINT_ERROR: {
+                 int32_t vendorCode = 0;
+                 FingerprintError result = VendorErrorFilter(msg->data.error, &vendorCode);
++                if (result == FingerprintError::ERROR_CANCELED)
++                    thisPtr->mCancelAnswered = true;
+                 ALOGD("onError(%d)", result);
+                 if (!thisPtr->mClientCallback->onError(devId, result, vendorCode).isOk()) {
+                     ALOGE("failed to invoke fingerprint onError callback");
+@@ -311,6 +439,8 @@ void BiometricsFingerprint::notify(const fingerprint_msg_t *msg) {
+             }
+             break;
+         case FINGERPRINT_TEMPLATE_ENROLLING:
++            if (msg->data.enroll.samples_remaining == 0)
++                thisPtr->addFid(msg->data.enroll.finger.fid);
+             ALOGD("onEnrollResult(fid=%d, gid=%d, rem=%d)",
+                 msg->data.enroll.finger.fid,
+                 msg->data.enroll.finger.gid,
+@@ -323,6 +453,8 @@ void BiometricsFingerprint::notify(const fingerprint_msg_t *msg) {
+             }
+             break;
+         case FINGERPRINT_TEMPLATE_REMOVED:
++            thisPtr->mRemoveAnswered = true;
++            thisPtr->removeFid(msg->data.removed.finger.fid);
+             ALOGD("onRemove(fid=%d, gid=%d, rem=%d)",
+                 msg->data.removed.finger.fid,
+                 msg->data.removed.finger.gid,
+diff --git a/fingerprint/BiometricsFingerprint.h b/fingerprint/BiometricsFingerprint.h
+index c9619b8..b0d71d2 100644
+--- a/fingerprint/BiometricsFingerprint.h
++++ b/fingerprint/BiometricsFingerprint.h
+@@ -18,6 +18,8 @@
+ #define ANDROID_HARDWARE_BIOMETRICS_FINGERPRINT_V2_1_BIOMETRICSFINGERPRINT_H
+ 
+ #include <atomic>
++#include <string>
++#include <vector>
+ #include <log/log.h>
+ #include <android/log.h>
+ #include <hardware/hardware.h>
+@@ -79,6 +81,24 @@ private:
+     std::atomic<uint32_t> mEnumerateGeneration{0};
+     std::atomic<bool> mEnumerateAnswered{true};
+     std::atomic<uint32_t> mActiveGid{0};
++    /* ...and it stops on cancel() without reporting ERROR_CANCELED, which
++     * leaves the framework scheduler stuck on the cancelled client. */
++    std::atomic<uint32_t> mCancelGeneration{0};
++    std::atomic<bool> mCancelAnswered{true};
++
++    /* The module's enumerate() never reports templates, empty or not, and it
++     * may not report removals either.  Keep the enrolled fids next to its
++     * template DB (<storePath>/fujisan_fids) and answer from that list. */
++    void loadFidsLocked();
++    void saveFidsLocked();
++    void addFid(uint32_t fid);
++    std::vector<uint32_t> removeFid(uint32_t fid);
++    std::vector<uint32_t> snapshotFids();
++    std::mutex mFidMutex;
++    std::string mFidPath;
++    std::vector<uint32_t> mFids;
++    std::atomic<uint32_t> mRemoveGeneration{0};
++    std::atomic<bool> mRemoveAnswered{true};
+ };
+ 
+ }  // namespace implementation

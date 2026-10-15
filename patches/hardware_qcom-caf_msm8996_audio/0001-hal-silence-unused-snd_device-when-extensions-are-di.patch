@@ -1,0 +1,23 @@
+From f96af412df1574ae110c552d875860b4e0d0dd70 Mon Sep 17 00:00:00 2001
+From: S7ruc7ureV01d <S7ruc7ureV01d@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 14:33:56 -0300
+Subject: [PATCH] hal: silence unused snd_device when extensions are disabled
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Change-Id: I173c8dc91cbb51deded6b8e0d1a2c423625d38ca
+---
+ hal/audio_extn/utils.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/hal/audio_extn/utils.c b/hal/audio_extn/utils.c
+index cd78854..396c017 100644
+--- a/hal/audio_extn/utils.c
++++ b/hal/audio_extn/utils.c
+@@ -2522,6 +2522,7 @@ int audio_extn_utils_get_channels_from_string(const char *id_string)
+ 
+ void audio_extn_utils_release_snd_device(snd_device_t snd_device)
+ {
++    (void)snd_device; /* unused when ST/listen/dev_arbi are compiled out */
+     audio_extn_dev_arbi_release(snd_device);
+     audio_extn_sound_trigger_update_device_status(snd_device,
+                                     ST_EVENT_SND_DEVICE_FREE);

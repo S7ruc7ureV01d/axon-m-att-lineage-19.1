@@ -1,0 +1,43 @@
+From 047ffb3583e0e5acc272370cc7d35a4f4bac9888 Mon Sep 17 00:00:00 2001
+From: S7ruc7ureV01d <S7ruc7ureV01d@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 22:22:48 -0300
+Subject: [PATCH 3/8] fujisan: allowlist STATUS_BAR for FujisanFlashlight
+
+Android 12 enforces the privapp-permissions allowlist: system_server threw
+IllegalStateException on every start and looped on the boot animation.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ device.mk                                              | 3 ++-
+ system/etc/permissions/privapp-permissions-fujisan.xml | 8 ++++++++
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+ create mode 100644 system/etc/permissions/privapp-permissions-fujisan.xml
+
+diff --git a/device.mk b/device.mk
+index 2f53fbc..f4e549e 100644
+--- a/device.mk
++++ b/device.mk
+@@ -335,7 +335,8 @@ PRODUCT_COPY_FILES += \
+     $(LOCAL_PATH)/system/usr/keylayout/gpio-keys.kl:$(TARGET_COPY_OUT_SYSTEM)/usr/keylayout/gpio-keys.kl \
+     $(LOCAL_PATH)/system/usr/keylayout/qpnp_pon.kl:$(TARGET_COPY_OUT_SYSTEM)/usr/keylayout/qpnp_pon.kl \
+     $(LOCAL_PATH)/system/usr/keylayout/synaptics_dsx.kl:$(TARGET_COPY_OUT_SYSTEM)/usr/keylayout/synaptics_dsx.kl \
+-    $(LOCAL_PATH)/system/etc/permissions/android.hardware.fingerprint.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/permissions/android.hardware.fingerprint.xml
++    $(LOCAL_PATH)/system/etc/permissions/android.hardware.fingerprint.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/permissions/android.hardware.fingerprint.xml \
++    $(LOCAL_PATH)/system/etc/permissions/privapp-permissions-fujisan.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/permissions/privapp-permissions-fujisan.xml
+ 
+ PRODUCT_COPY_FILES += \
+     $(call find-copy-subdir-files,*,$(LOCAL_PATH)/ramdisk,$(TARGET_COPY_OUT_RAMDISK))
+diff --git a/system/etc/permissions/privapp-permissions-fujisan.xml b/system/etc/permissions/privapp-permissions-fujisan.xml
+new file mode 100644
+index 0000000..a92017e
+--- /dev/null
++++ b/system/etc/permissions/privapp-permissions-fujisan.xml
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Android 12 refuses to boot when a priv-app requests an unlisted
++     signature|privileged permission. -->
++<permissions>
++    <privapp-permissions package="com.zte.fujisan.flashlight">
++        <permission name="android.permission.STATUS_BAR" />
++    </privapp-permissions>
++</permissions>
