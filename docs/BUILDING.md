@@ -32,7 +32,7 @@ The script runs `git am -3` for each series in `patches/`. It applies onto the
 base commits in the README table; `-3` absorbs minor upstream drift. If a
 series fails, fix it in that repo and `git am --continue` / `--abort`.
 
-The patches touch five repos:
+The patches touch six repos:
 
 | repo path in the tree | patches |
 |-----------------------|---------|
@@ -41,6 +41,7 @@ The patches touch five repos:
 | `kernel/zte/msm8996` | 1 |
 | `lineage-sdk` | 2 |
 | `hardware/qcom-caf/msm8996/audio` | 1 |
+| `frameworks/base` | 1 (SystemUI) |
 
 ## 3. Build
 

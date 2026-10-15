@@ -1,0 +1,56 @@
+From 97b1387c3cc45526b082fdcd28c5fd20fc749409 Mon Sep 17 00:00:00 2001
+From: S7ruc7ureV01d <S7ruc7ureV01d@users.noreply.github.com>
+Date: Thu, 15 Oct 2026 01:08:04 -0300
+Subject: [PATCH] SystemUI: key status bar insets cache on display size
+
+StatusBarContentInsetsProvider cached the status bar content area per
+(display id, rotation) only, and onMaxBoundsChanged() just notified
+listeners. A foldable keeps both across a fold, so the area computed for
+the unfolded 2160px display was reused on the folded 1080px panel: the
+right inset went negative and the system icons (battery, wifi, signal)
+were squeezed out of the status bar.
+
+Add the display bounds to the cache key and drop the cache when the
+max bounds change, as AOSP does from Android 13.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Change-Id: Ia8fc2aba346720fb642374690dfb53a19953ecdd
+---
+ .../statusbar/phone/StatusBarContentInsetsProvider.kt  | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarContentInsetsProvider.kt b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarContentInsetsProvider.kt
+index ac3eee12..66378430 100644
+--- a/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarContentInsetsProvider.kt
++++ b/packages/SystemUI/src/com/android/systemui/statusbar/phone/StatusBarContentInsetsProvider.kt
+@@ -100,7 +100,9 @@ class StatusBarContentInsetsProvider @Inject constructor(
+     }
+ 
+     override fun onMaxBoundsChanged() {
+-        notifyInsetsChanged()
++        // A foldable keeps its display id and rotation across a fold, so insets cached for the
++        // previous display size must not be reused.
++        clearCachedInsets()
+     }
+ 
+     private fun clearCachedInsets() {
+@@ -273,12 +275,14 @@ class StatusBarContentInsetsProvider @Inject constructor(
+     private fun getCacheKey(@Rotation rotation: Int): CacheKey =
+         CacheKey(
+             uniqueDisplayId = context.display.uniqueId,
+-            rotation = rotation
++            rotation = rotation,
++            displaySize = Rect(context.resources.configuration.windowConfiguration.maxBounds)
+         )
+ 
+     private data class CacheKey(
+         val uniqueDisplayId: String,
+-        @Rotation val rotation: Int
++        @Rotation val rotation: Int,
++        val displaySize: Rect
+     )
+ }
+ 
+-- 
+2.55.0
+

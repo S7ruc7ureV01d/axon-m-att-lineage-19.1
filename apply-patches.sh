@@ -19,6 +19,7 @@ declare -A MAP=(
     [android_kernel_zte_msm8996]="kernel/zte/msm8996"
     [lineage-sdk]="lineage-sdk"
     [hardware_qcom-caf_msm8996_audio]="hardware/qcom-caf/msm8996/audio"
+    [android_frameworks_base]="frameworks/base"
 )
 
 for folder in "${!MAP[@]}"; do
