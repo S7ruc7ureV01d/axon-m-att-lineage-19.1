@@ -6,7 +6,7 @@ fujisan ROMs are built against the China/Japan units and **hang on the AT&T
 boot chain**; this set adds the AT&T-specific fixes on top of them.
 
 These are **patches**, not a full ROM. You apply them over the existing public
-device, vendor, kernel and LineageOS trees, then build.
+device, vendor, kernel and LineageOS trees, then build. The prebuilt version is available in releas
 
 > **Status:** V1. SELinux is **permissive**. Built and tested on one AT&T eMMC
 > unit on the B37 bootloader. There is **no bootloader unlock and no fastboot**
@@ -90,11 +90,8 @@ AT&T-signed copy and adds the stock AT&T `fingerprint.fpc.so` /
 
 - Base device/vendor/kernel trees: **Anya1014CN** / **HanCF1014** (fujisan).
 - LineageOS 19.1.
-- AT&T-specific research, bring-up and these patches: **S7ruc7ureV01d**, with Claude.
+- AT&T-specific research, bring-up and these patches: **S7ruc7ureV01d**.
 - Firmware, tools and prior research: see [docs/TOOLS.md](docs/TOOLS.md).
-
-No warranty. Flashing firmware over EDL can brick the device. You do this at
-your own risk.
 
 ## Disclaimer
 
